@@ -14,6 +14,7 @@ def appStarted(app):
     app.cellWidth = d[3]
     app.empty = "white"
     app.board = [[app.empty]*app.cols for i in range(app.rows)]
+    app.mazeBoard = [[False*10]for i in range(10)]
     #--------------------------------------------------------------------------
     app.r = app.cellHeight/2 #17.5
     app.BarryY = (app.height-(app.margin)-app.r)
@@ -60,12 +61,20 @@ def appStarted(app):
     #--------------------------------------------------------------------------
     app.staticLaser = True
     app.staticLaserDimensions = ()
+    app.powerUpDimensions = ()
+    app.newPowerUpDimensions = (1,2)
+    app.powerUpCounter = 0
+    app.powerUp = []
+    app.powerUpCount = 0
+    app.powerUpRemove = 0
     app.rotatingLaser = True
     app.missile = True
     app.obstacleList=[app.staticLaser,app.rotatingLaser,app.missile]
     app.obstacleCount = 1
     app.coinCount = 0
     #--------------------------------------------------------------------------
+    app.gameStart = False
+    app.gameMode = "normal"
     app.isGameOver = False
     app.reset = False
     app.speed = 1
@@ -73,6 +82,7 @@ def appStarted(app):
     app.score = app.coinCount + app.distance
     generateObstacles(app)
     generateCoins(app)
+    generatePowerUp(app)
 
 #------------------------------------------------------------------------------
 def gameDimensions(app):
@@ -90,6 +100,8 @@ def keyPressed(app,event):
         app.move = 10
     if event.key == "r":
         appStarted(app)
+    if event.key == "s":
+        app.gameStart = True
 #------------------------------------------------------------------------------
 def drawCell(app,canvas,row,col,color):
     h = app.cellHeight
@@ -114,6 +126,23 @@ def resetBoard(app):
     if len(app.finalCoinList)>0:
         app.finalCoinList = []
 
+def drawStartScreen(app,canvas):
+    canvas.create_rectangle(0,
+        0,
+        app.width,
+        app.height,
+        fill = "white")
+    canvas.create_text(app.width/2,
+        app.height/2-app.margin, 
+        text = "Welcome to Jetpack Mazeride", 
+        fill = "black",
+        font = "Krungthep 30 bold")
+    canvas.create_text(app.width/2,
+        app.height/2 + app.margin,
+        text = "Press s to start",
+        fill = "black",
+        font = "Krungthep 26 bold")
+
 def drawEndScreen(app,canvas):
     canvas.create_rectangle(0,
         0,
@@ -126,16 +155,20 @@ def drawEndScreen(app,canvas):
         fill = "black",
         font = "Krungthep 30 bold")
     canvas.create_text(app.width/2,
-        app.height/2 + app.margin,
+        app.height/2 + 2*app.margin,
         text = "Press r to restart",
         fill = "black",
         font = "Krungthep 26 bold")
     canvas.create_text(app.width/2,
-        app.height/2,
+        app.height/2+app.margin,
         text = f"Coins = {app.coinCount}",
         fill = "black",
         font = "Krungthep 26 bold")
-
+    canvas.create_text(app.width/2,
+        app.height/2,
+        text = f"Score = {app.coinCount+app.distance}",
+        fill = "black",
+        font = "Krungthep 26 bold")
 
 def drawScoreTracker(app,canvas):
     canvas.create_text(app.width/2,
@@ -144,7 +177,7 @@ def drawScoreTracker(app,canvas):
     fill = "black",
     font = "Krungthep 15 bold")
     
-#------------------------------------------------------------------------------
+#----------------------------------main player----------------------------------
 def drawBarry(app,canvas):
     canvas.create_oval(app.BarryX-app.r,
         app.BarryY-app.r,
@@ -169,7 +202,7 @@ def moveBarryIsLegal(app):
     if app.BarryY>(app.height-(2*app.margin)):
         return False
     return True
-#------------------------------------------------------------------------------
+#---------------------------------obstacles-------------------------------------
 def generateObstacles(app):
     # randomIndex = random.randint(0,len(app.obstacleList)-1)
     # currObs = app.obstacleList[randomIndex]
@@ -231,7 +264,7 @@ def collisionDetectionLaser(app,dimensions,x,barryX,barryY):
         if abs((barryY-(gradient*abs((barryX-newcx))+newcy)))<=app.r:
             return True
     return False
-#------------------------------------------------------------------------------
+#-----------------------------------coins---------------------------------------
 def generateCoins(app):
     app.newCoinList = []
     app.finalCoinList = []
@@ -252,9 +285,12 @@ def collideCoin(app,x):
         if math.sqrt((newCy-app.BarryY)**2+(newCx-app.BarryX)**2)<=app.r+max(app.cellHeight/2,app.cellWidth/2):
             app.coinCount += 1
             app.finalCoinList.remove((cx,cy))
+        # if newCy-app.BarryY<app.cellHeight and newCx-app.BarryX < app.cellWidth:
+        #     app.coinCount += 1
+        #     app.finalCoinList.remove((cx,cy))
         else:
             app.newCoinList.append((newCx,newCy))
-            
+
     
 def drawCoin(app,canvas,i):
     coinR = app.r/2
@@ -266,33 +302,101 @@ def drawCoin(app,canvas,i):
         fill = "gold", 
         outline = "yellow", 
         width = 3)
+#---------------------------------power ups-------------------------------------
+def generatePowerUp(app):
+    app.powerUpRemove = 0
+    srow,scol = (random.randint(3,8),27)
+    cx,cy = scol*app.cellWidth + app.r,srow*app.cellHeight + app.r + app.margin
+    app.powerUpDimensions = (cx,cy)
 
-#----------------------------
+def collidePowerUp(app,x,counter):
+    cx,cy = app.powerUpDimensions
+    if app.powerUpRemove == 0:
+        app.powerUp = [(cx,cy)]
+        yDirections = [0,0.5,0,-0.5]
+        index = counter%len(yDirections)
+        y = yDirections[index]*app.cellHeight
+        (newCx,newCy) = (cx-x,cy+y)
+        app.newPowerUpDimensions = (newCx,newCy)
+        if math.sqrt((newCy-app.BarryY)**2+(newCx-app.BarryX)**2)<=app.r+max(app.cellHeight/2,app.cellWidth/2):
+            app.powerUpCount += 1
+            app.powerUp.remove((cx,cy))
+            app.powerUpRemove = 1
+
+def drawPowerUp(app,canvas,dimensions):
+    coinR = app.r
+    (cx,cy) = dimensions
+    canvas.create_oval(cx-coinR,
+        cy-coinR,
+        cx+coinR,
+        cy+coinR,
+        fill = "purple", 
+        outline = "yellow", 
+        width = 3)
+#------------------------------maze generation----------------------------------
+
+def dfsMazeGenerator(app,srow,scol,board):
+    nrow = len(board)
+    ncol = len(board[0])
+    possibleMoves = [(0,1),(0,-1),(1,0),(-1,0)]
+    for k in possibleMoves:
+        if moveCellIsLegal(k,srow,scol,board):
+            (drow,dcol) = k
+            newSrow = srow+drow
+            newScol = scol+dcol
+            board[newSrow][newScol] = True
+        solution = dfsMazeGenerator(app,newSrow,newScol,board)
+        if solution != None:
+            return solution
+        else:
+            board[newSrow][newScol] = False
+    return None
+
+def moveCellIsLegal(k,srow,scol,board):
+    nrow = len(board)
+    ncol = len(board[0])
+    (drow,dcol) = k
+    pass
+
+#-----------------------timer fired and redraw all------------------------------
 def timerFired(app):
-    moveBarry(app,app.move)
-    if app.isGameOver == False:
-        app.scrollX += 8*app.speed
-        app.distance += 1
-        if app.scrollX%900==0:
-            app.scrollX = 0
-            generateObstacles(app)
-        if app.scrollX%1000==0:
-            generateCoins(app)
-        if app.distance % 50 == 0:
-            app.speed += 0.2
-        collideCoin(app,app.scrollX)
-        # coinCollision(app,app.scrollX)
-        if collisionDetectionLaser(app,app.staticLaserDimensions,app.scrollX,app.BarryX,app.BarryY) == True:
-            app.isGameOver = True
+    if app.gameStart == False:
+        pass
+    else:
+        moveBarry(app,app.move)
+        if app.isGameOver == False:
+            app.scrollX += 8*app.speed
+            app.distance += 1
+            app.powerUpCounter += 1
+            if app.scrollX>=1200:
+                app.scrollX = 0
+                generateObstacles(app)
+            if app.scrollX>=1000:
+                generateCoins(app)
+            #how to generate more sporadically?
+            if app.distance%250==0:
+                generatePowerUp(app)
+            if app.distance % 50 == 0:
+                app.speed += 0.2
+            collideCoin(app,app.scrollX)
+            collidePowerUp(app,app.scrollX,app.powerUpCounter)
+            if collisionDetectionLaser(app,app.staticLaserDimensions,app.scrollX,app.BarryX,app.BarryY) == True:
+                app.isGameOver = True
 
 def redrawAll(app,canvas):
     if app.isGameOver == False:
-        drawGameBoard(app,canvas)
-        drawBarry(app,canvas)
-        for i in app.newCoinList:
-            drawCoin(app,canvas,i)
-        drawStaticLaser(app,canvas,app.staticLaserDimensions,app.scrollX)
-        drawScoreTracker(app,canvas)
+        if app.gameStart == False:
+            drawStartScreen(app,canvas)
+        else:
+            drawGameBoard(app,canvas)
+            drawBarry(app,canvas)
+            for i in app.newCoinList:
+                drawCoin(app,canvas,i)
+            if len(app.powerUp)>0:
+                drawPowerUp(app,canvas,app.newPowerUpDimensions)
+            print(len(app.powerUp))
+            drawStaticLaser(app,canvas,app.staticLaserDimensions,app.scrollX)
+            drawScoreTracker(app,canvas)
     elif app.isGameOver == True:
         drawEndScreen(app,canvas)
 
@@ -303,6 +407,3 @@ playJetpackJoyride()
 
 
 #To-do
-#1) Keep track of scores and number of obstacles and coins collected
-#2) Create an end game screen
-#3) Create a restart button
