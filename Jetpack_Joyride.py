@@ -14,7 +14,7 @@ def appStarted(app):
     app.cellWidth = d[3]
     app.empty = "white"
     app.board = [[app.empty]*app.cols for i in range(app.rows)]
-    app.mazeBoard = [[False*10]for i in range(10)]
+    app.mazeBoard = [[0]*5 for i in range(5)]
     #--------------------------------------------------------------------------
     app.r = app.cellHeight/2 #17.5
     app.BarryY = (app.height-(app.margin)-app.r)
@@ -65,24 +65,53 @@ def appStarted(app):
     app.newPowerUpDimensions = (1,2)
     app.powerUpCounter = 0
     app.powerUp = []
-    app.powerUpCount = 0
     app.powerUpRemove = 0
+    app.powerUpCounter = 0
     app.rotatingLaser = True
     app.missile = True
-    app.obstacleList=[app.staticLaser,app.rotatingLaser,app.missile]
+    app.obstacleList=[app.staticLaser,app.missile]
     app.obstacleCount = 1
     app.coinCount = 0
     #--------------------------------------------------------------------------
     app.gameStart = False
+    app.pause = False
     app.gameMode = "normal"
     app.isGameOver = False
     app.reset = False
     app.speed = 1
     app.distance = 0
     app.score = app.coinCount + app.distance
+    app.highScoreFile = "/Users/dhruvareddy/Documents/GitHub/112TermProject/highScore.txt"
+    highScore = open(app.highScoreFile,"r")
+    app.highScore = highScore.read()
+    app.leaderBoardDisplay = False
+    app.currentUser = ""
+    #--------------------------------------------------------------------------
+    n = newGameDimensions(app)
+    app.newMargin = n[4]
+    app.newRows = n[0]
+    app.newCols = n[1]
+    app.newCellHeight = n[2]
+    app.newCellWidth = n[3]
+    app.newBoard = [[0]*app.newCols for i in range(app.newRows)]
+
+    app.visited = []
+    app.end = (4,4)
+    app.start = (0,0)
+    (app.currY,app.currX) = app.start
+    app.currY*=2
+    app.currX*=2
+
+    app.timeElapsed = 0
+    app.mazeCompletedCounter = 0
+    
+
+    #--------------------------------------------------------------------------
     generateObstacles(app)
     generateCoins(app)
     generatePowerUp(app)
+    mazeBoardGenerator(app)
+    # getUserName(app)
 
 #------------------------------------------------------------------------------
 def gameDimensions(app):
@@ -94,21 +123,40 @@ def gameDimensions(app):
     return (rows, cols, cellHeight, cellWidth, margin)
 
 def keyPressed(app,event):
-    if event.key == "Up":
-        app.move = -10
-    if event.key == "Down":
-        app.move = 10
-    if event.key == "r":
-        appStarted(app)
-    if event.key == "s":
-        app.gameStart = True
+    if app.isGameOver == False:
+        if app.gameMode == "normal":
+            if event.key == "Up":
+                app.move = -10
+            if event.key == "Down":
+                app.move = 10
+            if event.key == "r":
+                appStarted(app)
+        if app.gameMode == "maze":
+            if event.key == "Up":
+                moveMazeBarry(app,0,-1)
+            if event.key == "Down":
+                moveMazeBarry(app,0,1)
+            if event.key == "Right":
+                moveMazeBarry(app,1,0)
+            if event.key == "Left":
+                moveMazeBarry(app,-1,0)
+        if app.pause == False:
+            if event.key == "s":
+                app.gameStart = True
+    if app.isGameOver == True:
+        if event.key == "r":
+                appStarted(app)
+        if event.key == "h":
+            app.leaderBoardDisplay = True
+            if event.key == "r":
+                appStarted(app)
 #------------------------------------------------------------------------------
 def drawCell(app,canvas,row,col,color):
     h = app.cellHeight
     w = app.cellWidth
     startX = 0
     startY = app.margin
-    canvas.create_rectangle(startX + col*w, 
+    canvas.create_rectangle(startX + col*w,
         startY + row*h, 
         col*w + w + startX, 
         row*h + h + startY, 
@@ -176,6 +224,27 @@ def drawScoreTracker(app,canvas):
     text = f"Score = {app.coinCount+app.distance}",
     fill = "black",
     font = "Krungthep 15 bold")
+
+def drawHighScore(app,canvas):
+    canvas.create_rectangle(0,
+        0,
+        app.width,
+        app.height,
+        fill = "white")
+    canvas.create_text(app.width/2,
+        app.height/5,
+        text = f"Highscore = {app.highScore}",
+        fill = "black",
+        font = "Krungthep 26 bold")
+
+def updateHighScore(app):
+    if (app.coinCount + app.distance)>int(app.highScore):
+        with open(app.highScoreFile,"w") as highScoreFileToWrite:
+            highScoreFileToWrite.write(str(app.coinCount + app.distance))
+
+def getUserName(app):
+    app.currUser = input("Enter your username here: ")
+    app.pause = False
     
 #----------------------------------main player----------------------------------
 def drawBarry(app,canvas):
@@ -207,11 +276,6 @@ def generateObstacles(app):
     # randomIndex = random.randint(0,len(app.obstacleList)-1)
     # currObs = app.obstacleList[randomIndex]
     currObs = app.staticLaser
-    # if currObs == app.rotatingLaser:
-        #generateRotatingLaser(app)
-        # height = random.randint(3,6)
-        # start = (26*app.cellWidth,)
-        # pass
     # if currObs == app.missile:
     #     #generateMissile(app)
     #     pass
@@ -219,7 +283,8 @@ def generateObstacles(app):
         height = random.randint(0,4)
         width = random.randint(2,5)
         #find the starting circle and place it randomly on the grid
-        start = (26*app.cellWidth,random.randint(height*app.cellHeight+app.margin,app.height-app.margin-height*app.cellHeight))
+        start = (26*app.cellWidth,random.randint(height*app.cellHeight+app.margin,
+        app.height-app.margin-height*app.cellHeight))
         app.staticLaserDimensions = (height,width,start)
 
 def drawStaticLaser(app,canvas,dimensions,x):
@@ -275,7 +340,8 @@ def generateCoins(app):
     for r in range(len(currCoin)):
         for c in range(len(currCoin[0])):
             if currCoin[r][c] == True:
-                (cx,cy) = ((coinCol+c)*app.cellWidth/2,((coinRow+r)*app.cellHeight/2)+2*app.margin)
+                (cx,cy) = ((coinCol+c)*app.cellWidth/2,
+                ((coinRow+r)*app.cellHeight/2)+2*app.margin)
                 app.finalCoinList.append((cx,cy))
 
 def collideCoin(app,x):
@@ -291,7 +357,6 @@ def collideCoin(app,x):
         else:
             app.newCoinList.append((newCx,newCy))
 
-    
 def drawCoin(app,canvas,i):
     coinR = app.r/2
     (cx,cy) = i
@@ -319,9 +384,10 @@ def collidePowerUp(app,x,counter):
         (newCx,newCy) = (cx-x,cy+y)
         app.newPowerUpDimensions = (newCx,newCy)
         if math.sqrt((newCy-app.BarryY)**2+(newCx-app.BarryX)**2)<=app.r+max(app.cellHeight/2,app.cellWidth/2):
-            app.powerUpCount += 1
             app.powerUp.remove((cx,cy))
             app.powerUpRemove = 1
+            app.gameMode = "maze"
+            mazeBoardGenerator(app)
 
 def drawPowerUp(app,canvas,dimensions):
     coinR = app.r
@@ -333,72 +399,286 @@ def drawPowerUp(app,canvas,dimensions):
         fill = "purple", 
         outline = "yellow", 
         width = 3)
-#------------------------------maze generation----------------------------------
+#------------------------------maze mode----------------------------------
 
-def dfsMazeGenerator(app,srow,scol,board):
-    nrow = len(board)
-    ncol = len(board[0])
+def newGameDimensions(app):
+    rows = 9
+    cols = 9
+    margin = 45
+    cellHeight = (app.height-(2*margin))/rows #35
+    cellWidth = app.width/15 #32
+    return (rows, cols, cellHeight, cellWidth, margin)
+
+def drawMazeCell(app,canvas,row,col,color):
+    h = app.newCellHeight
+    w = app.newCellWidth
+    startX = app.width/4
+    startY = app.newMargin
+    canvas.create_rectangle(startX + col*w, 
+        startY + row*h, 
+        col*w + w + startX, 
+        row*h + h + startY, 
+        fill = color,
+        outline = "black", 
+        width = 2)
+
+def drawMazeBoard(app,canvas):
+    startX = app.width/4
+    startY = app.newMargin
+    canvas.create_rectangle(startX, 
+        startY, 
+        startX + app.newCols*app.newCellWidth, 
+        startY + app.newRows*app.newCellHeight,
+        outline = "red", width = 2)
+    for r in range(app.newRows):
+        for c in range(app.newCols):
+            if app.newBoard[r][c] == 0:
+                drawMazeCell(app, canvas, r, c,"blue")
+            else:
+                drawMazeCell(app,canvas,r,c,"pink")
+
+def drawStartCell(app,canvas,start):
+    greenY,greenX = start
+    greenY*=2
+    greenX*=2
+    h = app.newCellHeight
+    w = app.newCellWidth
+    startX = app.width/4
+    startY = app.margin
+    canvas.create_rectangle(startX + greenX*w, 
+        startY + greenY*h, 
+        greenX*w + w + startX, 
+        greenY*h + h + startY, 
+        fill = "green",
+        outline = "green", 
+        width = 2)
+
+def drawEndCell(app,canvas,end):
+    redY,redX = end
+    redY*=2
+    redX*=2
+    h = app.newCellHeight
+    w = app.newCellWidth
+    startX = app.width/4
+    startY = app.margin
+    canvas.create_rectangle(startX + redX*w, 
+        startY + redY*h, 
+        redX*w + w + startX, 
+        redY*h + h + startY, 
+        fill = "red",
+        outline = "red",
+        width = 2)
+
+def repr2dList(L):
+    if (L == []): return '[]'
+    output = [ ]
+    rows = len(L)
+    cols = max([len(L[row]) for row in range(rows)])
+    M = [['']*cols for row in range(rows)]
+    for row in range(rows):
+        for col in range(len(L[row])):
+            M[row][col] = repr(L[row][col])
+    colWidths = [0] * cols
+    for col in range(cols):
+        colWidths[col] = max([len(M[row][col]) for row in range(rows)])
+    output.append('[\n')
+    for row in range(rows):
+        output.append(' [ ')
+        for col in range(cols):
+            if (col > 0):
+                output.append(', ' if col < len(L[row]) else '  ')
+            output.append(M[row][col].rjust(colWidths[col]))
+        output.append((' ],' if row < rows-1 else ' ]') + '\n')
+    output.append(']')
+    return ''.join(output)
+
+def drawMazeBarry(app,canvas):
+    canvas.create_oval((app.currX*app.newCellWidth)+(app.width/4)-app.r,
+        (app.currY*app.newCellHeight)+(app.margin)-app.r,
+        (app.currX*app.newCellWidth)+(app.width/4)+(app.r),
+        (app.currY*app.newCellHeight)+(app.newMargin)+(app.r),
+        fill = "blue")
+
+def moveMazeBarry(app,x,y):
+    app.currY += y
+    app.currX += x
+    #if Barry is not legal return Barry to previous state
+    if moveMazeBarryIsLegal(app,app.currX,app.currY) == False:
+        app.currY -= y
+        app.currX -= x
+        return False
+    if app.currX == app.end[1]*2 and app.currY == app.end[0]*2:
+        app.gameMode = "normal"
+
+def moveMazeBarryIsLegal(app,currX,currY):
+    if currX<0 or currX>len(app.newBoard[0])-1:
+        return False
+    if currY<0 or currY>len(app.newBoard)-1:
+        return False
+    if app.newBoard[currY][currX] == 0:
+        return False
+    return True
+
+def mazeCounter(app,canvas):
+    canvas.create_text(3*app.width/4,
+        app.margin/2, 
+        text = f"Mazes Completed = {app.MazeCompletionCount}", 
+        fill = "black",
+        font = "Krungthep 30 bold")
+
+def isMazeComplete(app):
+    if app.visited[-1] == app.end:
+        return True
+    return False
+
+def isValid(app,loc):
+    if (loc[0] < 0 or loc[0]>4) or (loc[1] < 0 or loc[1]>4):
+        return False
+    elif loc in app.visited:
+        return False
+    elif app.board[loc[0]][loc[1]] == 1:
+        return False
+    return True
+
+def randomizer(app):
+    finalMove = []
     possibleMoves = [(0,1),(0,-1),(1,0),(-1,0)]
+    while len(possibleMoves) != 0:
+        index = random.randint(0,len(possibleMoves)-1)
+        finalMove.append(possibleMoves[index])
+        possibleMoves.pop(index)
+    return finalMove
+
+def mazeGeneration(app,curr):
+    srow,scol = app.start
+    app.mazeBoard[srow][scol] = 1
+    if isMazeComplete(app):
+        return app.mazeBoard
+    possibleMoves = randomizer(app)
     for k in possibleMoves:
-        if moveCellIsLegal(k,srow,scol,board):
-            (drow,dcol) = k
-            newSrow = srow+drow
-            newScol = scol+dcol
-            board[newSrow][newScol] = True
-        solution = dfsMazeGenerator(app,newSrow,newScol,board)
-        if solution != None:
-            return solution
-        else:
-            board[newSrow][newScol] = False
+        drow = curr[0] + k[0]
+        dcol = curr[1] + k[1]
+        #curr = (drow,dcol)
+        if isValid(app,(drow,dcol)):
+            app.mazeBoard[drow][dcol] = 1
+            app.visited.append((drow,dcol))
+            solution = mazeGeneration(app,(drow,dcol))
+            if solution != None:
+                return solution
+            else:
+                app.mazeBoard[curr[0]][curr[1]] = 0
+                app.visited.remove((drow,dcol))
     return None
 
-def moveCellIsLegal(k,srow,scol,board):
-    nrow = len(board)
-    ncol = len(board[0])
-    (drow,dcol) = k
-    pass
+def actualMazeGenerator(app):
+    newVisited = []
+    counter = 0
+    newBoard = [[0]*app.newCols for i in range(app.newRows)]
+    for (elementX,elementY) in app.visited:
+        newVisited.append((elementX*2,elementY*2))
+        for (x,y) in newVisited:
+            newBoard[x][y] = 1
+    while counter<len(newVisited)-1:
+        next = counter+1
+        if newVisited[next][0]-newVisited[counter][0] == 2:
+            newBoard[newVisited[next][0]-1][newVisited[next][1]] = 1
+        if newVisited[next][0]-newVisited[counter][0] == -2:
+            newBoard[newVisited[next][0]+1][newVisited[next][1]] = 1
+        if newVisited[next][1]-newVisited[counter][1] == 2:
+            newBoard[newVisited[next][0]][newVisited[next][1]-1] = 1
+        if newVisited[next][1]-newVisited[counter][1] == -2:
+            newBoard[newVisited[next][0]][newVisited[next][1]+1] = 1
+        counter += 1
+    return newBoard
+
+def mazeBoardGenerator(app):
+    app.end = (random.randint(0,4),4)
+    app.start = (random.randint(0,4),0)
+    x,y = app.start
+    (app.currX,app.currY) = (y*2,x*2)
+    curr = (x,y)
+    app.visited = []
+    app.visited.append(curr)
+    mazeGeneration(app,curr)
+    app.newBoard = actualMazeGenerator(app)
+
+def mazeCompleted(app):
+    redY,redX = app.end
+    redY*=2
+    redX*=2
+    if app.currX == redX and app.currY == redY:
+        return True
+    return False
+
 
 #-----------------------timer fired and redraw all------------------------------
 def timerFired(app):
     if app.gameStart == False:
         pass
     else:
-        moveBarry(app,app.move)
         if app.isGameOver == False:
-            app.scrollX += 8*app.speed
-            app.distance += 1
-            app.powerUpCounter += 1
-            if app.scrollX>=1200:
+            print(f"mazeCompletedCounter = {app.mazeCompletedCounter}")
+            print(f"scrollX = {app.scrollX}")
+            print(f"time elapsed = {app.timeElapsed}")
+            if app.gameMode == "maze":
                 app.scrollX = 0
-                generateObstacles(app)
-            if app.scrollX>=1000:
-                generateCoins(app)
-            #how to generate more sporadically?
-            if app.distance%250==0:
-                generatePowerUp(app)
-            if app.distance % 50 == 0:
-                app.speed += 0.2
-            collideCoin(app,app.scrollX)
-            collidePowerUp(app,app.scrollX,app.powerUpCounter)
-            if collisionDetectionLaser(app,app.staticLaserDimensions,app.scrollX,app.BarryX,app.BarryY) == True:
-                app.isGameOver = True
+                app.timeElapsed += 1
+                if mazeCompleted(app):
+                    app.timeElapsed = 0
+                    app.mazeCompletedCounter += 1
+                    app.powerUpRemove = 0
+                    app.gameMode = "normal"
+                elif app.timeElapsed == 100:
+                    app.timeElapsed = 0
+                    app.powerUpRemove = 0
+                    app.gameMode = "normal"
+            else:
+                moveBarry(app,app.move)
+                app.scrollX += 8*app.speed
+                app.distance += 1
+                app.powerUpCounter += 1
+                if app.scrollX>=1200:
+                    app.scrollX = 0
+                    generateObstacles(app)
+                if app.scrollX>=1000:
+                    generateCoins(app)
+                #how to generate more sporadically?
+                if app.scrollX>=1100:
+                    generatePowerUp(app)
+                if app.distance % 50 == 0:
+                    app.speed += 0.2
+                collideCoin(app,app.scrollX)
+                collidePowerUp(app,app.scrollX*1.67,app.powerUpCounter)
+                if collisionDetectionLaser(app,app.staticLaserDimensions,
+                app.scrollX,app.BarryX,app.BarryY) == True:
+                    app.isGameOver = True
+        # if app.isGameOver == True:
+        #     updateHighScore(app)
 
 def redrawAll(app,canvas):
     if app.isGameOver == False:
         if app.gameStart == False:
             drawStartScreen(app,canvas)
         else:
-            drawGameBoard(app,canvas)
-            drawBarry(app,canvas)
-            for i in app.newCoinList:
-                drawCoin(app,canvas,i)
-            if len(app.powerUp)>0:
-                drawPowerUp(app,canvas,app.newPowerUpDimensions)
-            print(len(app.powerUp))
-            drawStaticLaser(app,canvas,app.staticLaserDimensions,app.scrollX)
-            drawScoreTracker(app,canvas)
+            if app.gameMode == "maze":
+                canvas.create_rectangle(0,0,app.width,app.height,fill="orange")
+                drawMazeBoard(app,canvas)
+                drawStartCell(app,canvas,app.start)
+                drawEndCell(app,canvas,app.end)
+                drawMazeBarry(app,canvas)
+            else:
+                drawGameBoard(app,canvas)
+                drawBarry(app,canvas)
+                for i in app.newCoinList:
+                    drawCoin(app,canvas,i)
+                if len(app.powerUp)>0:
+                    drawPowerUp(app,canvas,app.newPowerUpDimensions)
+                drawStaticLaser(app,canvas,app.staticLaserDimensions,app.scrollX)
+                drawScoreTracker(app,canvas)
     elif app.isGameOver == True:
         drawEndScreen(app,canvas)
+        if app.leaderBoardDisplay == True:
+            drawHighScore(app,canvas)
 
 def playJetpackJoyride():
     runApp(width = 800, height = 400)
@@ -406,4 +686,13 @@ def playJetpackJoyride():
 playJetpackJoyride()
 
 
-#To-do
+#------------------------------citations:--------------------------------------
+#From 112 course: Tetris, sidescroller, gameModes, repr2dList, Backtracking Maze Generation
+#fontfamily.py: https://stackoverflow.com/questions/39614027/list-available-font-families-in-tkinter courtesy of jimmiesrustled
+#Images and sprites: https://github.com/HugoLaurencon/JetPack-Joyride-game-in-Python/find/master courtesy of Hugo Laurencon
+#Open and read txt files: https://www.pythontutorial.net/python-basics/python-read-text-file/ 
+
+
+#current problems:
+# can't seem to increase mazeCompletedCounter
+# time elapsed doesn't reset if you complete the maze successfully

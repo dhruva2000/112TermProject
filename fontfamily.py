@@ -1,3 +1,7 @@
+# Taken from: 
+# https://stackoverflow.com/questions/39614027/list-available-font-families-in-tkinter 
+# courtesy of jimmiesrustled
+
 from tkinter import *
 from tkinter import font
 
