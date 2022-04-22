@@ -102,7 +102,7 @@ def appStarted(app):
     app.currY*=2
     app.currX*=2
 
-    app.timeElapsed = 0
+    app.timeElapsed = 100
     app.mazeCompletedCounter = 0
     
 
@@ -147,7 +147,7 @@ def keyPressed(app,event):
         if event.key == "r":
                 appStarted(app)
         if event.key == "h":
-            app.leaderBoardDisplay = True
+            app.leaderBoardDisplay = not app.leaderBoardDisplay
             if event.key == "r":
                 appStarted(app)
 #------------------------------------------------------------------------------
@@ -198,32 +198,47 @@ def drawEndScreen(app,canvas):
         app.height,
         fill = "white")
     canvas.create_text(app.width/2,
-        app.height/2-app.margin, 
+        app.height/2-2*app.margin, 
         text = "Game Over", 
         fill = "black",
         font = "Krungthep 30 bold")
+    canvas.create_text(app.width/4,
+        app.height/2 - app.margin,
+        text = f"Coins = {app.coinCount}",
+        fill = "black",
+        font = "Krungthep 26 bold")
+    canvas.create_text(3*app.width/4,
+        app.height/2 - app.margin,
+        text = f"Mazes Completed = {app.mazeCompletedCounter}",
+        fill = "black",
+        font = "Krungthep 26 bold")
+    canvas.create_text(app.width/4,
+        app.height/2,
+        text = f"Raw Score = {(app.coinCount+app.distance)}",
+        fill = "black",
+        font = "Krungthep 26 bold")
+    canvas.create_text(3*app.width/4,
+        app.height/2,
+        text = f"Final Score = {(app.coinCount+app.distance)*app.mazeCompletedCounter}",
+        fill = "black",
+        font = "Krungthep 26 bold")
+    canvas.create_text(app.width/2,
+        app.height/2 + app.margin,
+        text = "Press h for highscore",
+        fill = "black",
+        font = "Krungthep 26 bold")
     canvas.create_text(app.width/2,
         app.height/2 + 2*app.margin,
         text = "Press r to restart",
         fill = "black",
         font = "Krungthep 26 bold")
-    canvas.create_text(app.width/2,
-        app.height/2+app.margin,
-        text = f"Coins = {app.coinCount}",
-        fill = "black",
-        font = "Krungthep 26 bold")
-    canvas.create_text(app.width/2,
-        app.height/2,
-        text = f"Score = {app.coinCount+app.distance}",
-        fill = "black",
-        font = "Krungthep 26 bold")
 
 def drawScoreTracker(app,canvas):
-    canvas.create_text(app.width/2,
+    canvas.create_text(app.width/5,
     app.margin/2,
-    text = f"Score = {app.coinCount+app.distance}",
+    text = f"Score = {(app.coinCount+app.distance)}",
     fill = "black",
-    font = "Krungthep 15 bold")
+    font = "Krungthep 30 bold")
 
 def drawHighScore(app,canvas):
     canvas.create_rectangle(0,
@@ -232,17 +247,18 @@ def drawHighScore(app,canvas):
         app.height,
         fill = "white")
     canvas.create_text(app.width/2,
-        app.height/5,
+        app.height/2,
         text = f"Highscore = {app.highScore}",
         fill = "black",
-        font = "Krungthep 26 bold")
+        font = "Krungthep 30 bold")
 
 def updateHighScore(app):
-    if (app.coinCount + app.distance)>int(app.highScore):
+    if ((app.coinCount+app.distance)*app.mazeCompletedCounter)>int(app.highScore):
         with open(app.highScoreFile,"w") as highScoreFileToWrite:
-            highScoreFileToWrite.write(str(app.coinCount + app.distance))
+            highScoreFileToWrite.write(str((app.coinCount+app.distance)*app.mazeCompletedCounter))
 
 def getUserName(app):
+    # from turtle import 
     app.currUser = input("Enter your username here: ")
     app.pause = False
     
@@ -319,14 +335,17 @@ def collisionDetectionLaser(app,dimensions,x,barryX,barryY):
     (finalCx,finalCy) = (newcx+width*app.cellWidth,newcy+height*app.cellHeight)
     gradient = (finalCy-newcy)/(finalCx-newcx)
     if math.sqrt((finalCy-barryY)**2+(finalCx-barryX)**2)<=2*app.r:
+        updateHighScore(app)
         return True
     if math.sqrt((newcy-barryY)**2+(newcx-barryX)**2)<=2*app.r:
+        updateHighScore(app)
         return True
     #Use equation of line to solve for y coordinate
     if (newcx<=barryX<=finalCx):
         # print(barryY,(gradient*(barryX-newcx)+newcy))
         # print(abs((barryY-(gradient*abs((barryX-newcx))+newcy))),app.r)
         if abs((barryY-(gradient*abs((barryX-newcx))+newcy)))<=app.r:
+            updateHighScore(app)
             return True
     return False
 #-----------------------------------coins---------------------------------------
@@ -493,10 +512,10 @@ def repr2dList(L):
     return ''.join(output)
 
 def drawMazeBarry(app,canvas):
-    canvas.create_oval((app.currX*app.newCellWidth)+(app.width/4)-app.r,
-        (app.currY*app.newCellHeight)+(app.margin)-app.r,
-        (app.currX*app.newCellWidth)+(app.width/4)+(app.r),
-        (app.currY*app.newCellHeight)+(app.newMargin)+(app.r),
+    canvas.create_oval((app.currX*app.newCellWidth)+(app.width/4)+app.newCellWidth/2-app.r,
+        (app.currY*app.newCellHeight)+(app.margin)-app.r+app.newCellHeight/2,
+        (app.currX*app.newCellWidth)+(app.width/4)+app.newCellWidth/2+(app.r),
+        (app.currY*app.newCellHeight)+(app.newMargin)+app.newCellHeight/2+(app.r),
         fill = "blue")
 
 def moveMazeBarry(app,x,y):
@@ -508,6 +527,8 @@ def moveMazeBarry(app,x,y):
         app.currX -= x
         return False
     if app.currX == app.end[1]*2 and app.currY == app.end[0]*2:
+        app.timeElapsed = 100
+        app.mazeCompletedCounter += 1
         app.gameMode = "normal"
 
 def moveMazeBarryIsLegal(app,currX,currY):
@@ -519,10 +540,10 @@ def moveMazeBarryIsLegal(app,currX,currY):
         return False
     return True
 
-def mazeCounter(app,canvas):
+def drawMazeCounter(app,canvas):
     canvas.create_text(3*app.width/4,
         app.margin/2, 
-        text = f"Mazes Completed = {app.MazeCompletionCount}", 
+        text = f"Mazes Completed = {app.mazeCompletedCounter}", 
         fill = "black",
         font = "Krungthep 30 bold")
 
@@ -604,11 +625,18 @@ def mazeBoardGenerator(app):
 
 def mazeCompleted(app):
     redY,redX = app.end
-    redY*=2
-    redX*=2
-    if app.currX == redX and app.currY == redY:
+    endY,endX = redY*2,redX*2
+    if app.currX == endX and app.currY == endY:
         return True
     return False
+
+def drawTimeElapsedMazeSplash(app,canvas):
+    canvas.create_text(app.width/2,
+        app.margin/2.1, 
+        text = f"Time Elapsed = {app.timeElapsed}", 
+        fill = "black",
+        font = "Krungthep 25 bold")
+
 
 
 #-----------------------timer fired and redraw all------------------------------
@@ -622,15 +650,15 @@ def timerFired(app):
             print(f"time elapsed = {app.timeElapsed}")
             if app.gameMode == "maze":
                 app.scrollX = 0
-                app.timeElapsed += 1
+                app.timeElapsed -= 1
                 if mazeCompleted(app):
-                    app.timeElapsed = 0
+                    app.timeElapsed = 100
                     app.mazeCompletedCounter += 1
                     app.powerUpRemove = 0
                     app.gameMode = "normal"
-                elif app.timeElapsed == 100:
-                    app.timeElapsed = 0
-                    app.powerUpRemove = 0
+                elif app.timeElapsed == 0:
+                    app.timeElapsed = 100
+                    app.powerUpRemove = 1
                     app.gameMode = "normal"
             else:
                 moveBarry(app,app.move)
@@ -661,11 +689,12 @@ def redrawAll(app,canvas):
             drawStartScreen(app,canvas)
         else:
             if app.gameMode == "maze":
-                canvas.create_rectangle(0,0,app.width,app.height,fill="orange")
+                canvas.create_rectangle(0,0,app.width,app.height,fill="white")
                 drawMazeBoard(app,canvas)
                 drawStartCell(app,canvas,app.start)
                 drawEndCell(app,canvas,app.end)
                 drawMazeBarry(app,canvas)
+                drawTimeElapsedMazeSplash(app,canvas)
             else:
                 drawGameBoard(app,canvas)
                 drawBarry(app,canvas)
@@ -675,6 +704,7 @@ def redrawAll(app,canvas):
                     drawPowerUp(app,canvas,app.newPowerUpDimensions)
                 drawStaticLaser(app,canvas,app.staticLaserDimensions,app.scrollX)
                 drawScoreTracker(app,canvas)
+                drawMazeCounter(app,canvas)
     elif app.isGameOver == True:
         drawEndScreen(app,canvas)
         if app.leaderBoardDisplay == True:
@@ -687,12 +717,10 @@ playJetpackJoyride()
 
 
 #------------------------------citations:--------------------------------------
-#From 112 course: Tetris, sidescroller, gameModes, repr2dList, Backtracking Maze Generation
+#From 112 course: Tetris, sidescroller, gameModes, repr2dList, Backtracking Logic
 #fontfamily.py: https://stackoverflow.com/questions/39614027/list-available-font-families-in-tkinter courtesy of jimmiesrustled
 #Images and sprites: https://github.com/HugoLaurencon/JetPack-Joyride-game-in-Python/find/master courtesy of Hugo Laurencon
-#Open and read txt files: https://www.pythontutorial.net/python-basics/python-read-text-file/ 
-
+#Open and read txt files: https://www.pythontutorial.net/python-basics/python-read-text-file/, https://www.geeksforgeeks.org/reading-writing-text-files-python/
+#Special shoutouts to TAs Grace, Winston and Tjun Jet for their help!!
 
 #current problems:
-# can't seem to increase mazeCompletedCounter
-# time elapsed doesn't reset if you complete the maze successfully
