@@ -386,6 +386,6 @@ import copy,random
 
 import turtle, string
 
-name = turtle.textinput("Name", "Please enter your name:")
+name = turtle.textinput("username", "Please enter your username:")
 
 print("Hello", name.upper() + "!")

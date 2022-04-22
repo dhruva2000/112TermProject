@@ -1,4 +1,4 @@
-import math, copy, random
+import math, copy, random, turtle, string, json, ast
 from cmu_112_graphics import *
 #------------------------------------------------------------------------------
 def almostEqual(d1, d2, epsilon=10**-7):
@@ -80,12 +80,18 @@ def appStarted(app):
     app.reset = False
     app.speed = 1
     app.distance = 0
-    app.score = app.coinCount + app.distance
-    app.highScoreFile = "/Users/dhruvareddy/Documents/GitHub/112TermProject/highScore.txt"
-    highScore = open(app.highScoreFile,"r")
+
+    app.highScoreFile1 = "/Users/dhruvareddy/Documents/GitHub/112TermProject/highScore1.txt"
+    app.highScoreFile2 = "/Users/dhruvareddy/Documents/GitHub/112TermProject/highScore2.txt"
+    highScore = open(app.highScoreFile1,"r")
     app.highScore = highScore.read()
+    app.highScoreOutput = ""
+    app.highScoreList = []
+    app.highScoreModifiedList = []
     app.leaderBoardDisplay = False
-    app.currentUser = ""
+    app.currUser = ""
+    app.leaderboard = dict()
+
     #--------------------------------------------------------------------------
     n = newGameDimensions(app)
     app.newMargin = n[4]
@@ -104,14 +110,16 @@ def appStarted(app):
 
     app.timeElapsed = 100
     app.mazeCompletedCounter = 0
-    
+    app.score = app.coinCount+app.distance
+    app.finalScore = (app.coinCount+app.distance)*(app.mazeCompletedCounter+1)
+    app.userCurrScore = 0
 
     #--------------------------------------------------------------------------
     generateObstacles(app)
     generateCoins(app)
     generatePowerUp(app)
     mazeBoardGenerator(app)
-    # getUserName(app)
+    getUserName(app)
 
 #------------------------------------------------------------------------------
 def gameDimensions(app):
@@ -219,7 +227,7 @@ def drawEndScreen(app,canvas):
         font = "Krungthep 26 bold")
     canvas.create_text(3*app.width/4,
         app.height/2,
-        text = f"Final Score = {(app.coinCount+app.distance)*app.mazeCompletedCounter}",
+        text = f"Final Score = {app.finalScore}",
         fill = "black",
         font = "Krungthep 26 bold")
     canvas.create_text(app.width/2,
@@ -247,22 +255,44 @@ def drawHighScore(app,canvas):
         app.height,
         fill = "white")
     canvas.create_text(app.width/2,
-        app.height/2,
-        text = f"Highscore = {app.highScore}",
+        app.height/5,
+        text = f"Leaderboard",
         fill = "black",
         font = "Krungthep 30 bold")
+    canvas.create_text(app.width/2,
+        3*app.height/5,
+        text = f"{app.highScoreOutput}",
+        fill = "black",
+        font = "Krungthep 20 bold")
 
+#-----------------------------leaderboard---------------------------------------
+
+#highscore1 is the file with the raw dictionary
+#highscore2 is the string in the format that I want it to output
 def updateHighScore(app):
-    if ((app.coinCount+app.distance)*app.mazeCompletedCounter)>int(app.highScore):
-        with open(app.highScoreFile,"w") as highScoreFileToWrite:
-            highScoreFileToWrite.write(str((app.coinCount+app.distance)*app.mazeCompletedCounter))
-    highScore = open(app.highScoreFile,"r")
-    app.highScore = highScore.read()
+    app.userCurrScore = app.leaderboard.get(app.currUser,0)
+    if app.finalScore>int(app.userCurrScore):
+        app.leaderboard[app.currUser] = app.finalScore
+    app.leaderboard = dict(sorted(app.leaderboard.items(), key=lambda x: x[1], reverse=True))
+    with open(app.highScoreFile2,"w") as highScoreFile2:
+        for key, value in app.leaderboard.items(): 
+            highScoreFile2.write('%s:%s\n' % (key, value))
+    with open(app.highScoreFile1,"w") as highScoreFile1:
+        highScoreFile1.write(str(app.leaderboard))
+    highScore = open(app.highScoreFile2,"r")
+    app.highScoreList = highScore.read().splitlines()
+    #print(app.highScoreList)
+    app.highScoreModifiedList = app.highScoreList[:5]
+    for i in app.highScoreModifiedList:
+        app.highScoreOutput += f"{i}" + "\n"
 
 def getUserName(app):
-    # from turtle import 
-    app.currUser = input("Enter your username here: ")
+    from turtle import textinput
+    app.currUser = textinput("username", "Please enter your username:").upper()
+    with open(app.highScoreFile1,"r") as highScoreFileToRead:
+        app.leaderboard = dict(json.loads(json.dumps(ast.literal_eval(highScoreFileToRead.read()))))
     app.pause = False
+    turtle.bye()
     
 #----------------------------------main player----------------------------------
 def drawBarry(app,canvas):
@@ -337,9 +367,19 @@ def collisionDetectionLaser(app,dimensions,x,barryX,barryY):
     (finalCx,finalCy) = (newcx+width*app.cellWidth,newcy+height*app.cellHeight)
     gradient = (finalCy-newcy)/(finalCx-newcx)
     if math.sqrt((finalCy-barryY)**2+(finalCx-barryX)**2)<=2*app.r:
+        app.score = app.coinCount+app.distance
+        if app.mazeCompletedCounter == 0:
+                app.finalScore = app.score
+        else:
+            app.finalScore = app.score*(app.mazeCompletedCounter+1)
         updateHighScore(app)
         return True
     if math.sqrt((newcy-barryY)**2+(newcx-barryX)**2)<=2*app.r:
+        app.score = app.coinCount+app.distance
+        if app.mazeCompletedCounter == 0:
+                app.finalScore = app.score
+        else:
+            app.finalScore = app.score*(app.mazeCompletedCounter+1)
         updateHighScore(app)
         return True
     #Use equation of line to solve for y coordinate
@@ -347,6 +387,11 @@ def collisionDetectionLaser(app,dimensions,x,barryX,barryY):
         # print(barryY,(gradient*(barryX-newcx)+newcy))
         # print(abs((barryY-(gradient*abs((barryX-newcx))+newcy))),app.r)
         if abs((barryY-(gradient*abs((barryX-newcx))+newcy)))<=app.r:
+            app.score = app.coinCount+app.distance
+            if app.mazeCompletedCounter == 0:
+                app.finalScore = app.score
+            else:
+                app.finalScore = app.score*(app.mazeCompletedCounter+1)
             updateHighScore(app)
             return True
     return False
@@ -372,6 +417,7 @@ def collideCoin(app,x):
         if math.sqrt((newCy-app.BarryY)**2+(newCx-app.BarryX)**2)<=app.r+max(app.cellHeight/2,app.cellWidth/2):
             app.coinCount += 1
             app.finalCoinList.remove((cx,cy))
+            app.score = app.coinCount+app.distance
         # if newCy-app.BarryY<app.cellHeight and newCx-app.BarryX < app.cellWidth:
         #     app.coinCount += 1
         #     app.finalCoinList.remove((cx,cy))
@@ -716,10 +762,13 @@ playJetpackJoyride()
 
 
 #------------------------------citations:--------------------------------------
-#From 112 course: Tetris, sidescroller, gameModes, repr2dList, Backtracking Logic
-#fontfamily.py: https://stackoverflow.com/questions/39614027/list-available-font-families-in-tkinter courtesy of jimmiesrustled
-#Images and sprites: https://github.com/HugoLaurencon/JetPack-Joyride-game-in-Python/find/master courtesy of Hugo Laurencon
-#Open and read txt files: https://www.pythontutorial.net/python-basics/python-read-text-file/, https://www.geeksforgeeks.org/reading-writing-text-files-python/
-#Special shoutouts to TAs Grace, Winston and Tjun Jet for their help!!
+#From 112 course: Tetris, Sidescroller, repr2dList, Backtracking Logic
+# Tetris: https://www.cs.cmu.edu/~112/notes/notes-tetris/index.html
+# Sidescoller: https://www.cs.cmu.edu/~112/notes/notes-animations-part4.html#sidescrollerExamples
+# repr2DList: https://www.cs.cmu.edu/~112/notes/notes-2d-lists.html
+# Backtracking Logic (maze generation): https://www.cs.cmu.edu/~112/notes/notes-recursion-part2.html#mazeSolving
+# fontfamily.py: https://stackoverflow.com/questions/39614027/list-available-font-families-in-tkinter courtesy of jimmiesrustled
+# Images and sprites: https://github.com/HugoLaurencon/JetPack-Joyride-game-in-Python/find/master courtesy of Hugo Laurencon
+# Open and read txt files: https://www.pythontutorial.net/python-basics/python-read-text-file/, https://www.geeksforgeeks.org/reading-writing-text-files-python/
 
-#current problems:
+# Special shoutouts to TAs Grace, Winston and Tjun Jet for their help!!
