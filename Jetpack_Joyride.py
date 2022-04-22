@@ -159,7 +159,7 @@ def drawCell(app,canvas,row,col,color):
     canvas.create_rectangle(startX + col*w,
         startY + row*h, 
         col*w + w + startX, 
-        row*h + h + startY, 
+        row*h + h + startY,
         fill = color,
         outline = "black", 
         width = 3)
@@ -256,6 +256,8 @@ def updateHighScore(app):
     if ((app.coinCount+app.distance)*app.mazeCompletedCounter)>int(app.highScore):
         with open(app.highScoreFile,"w") as highScoreFileToWrite:
             highScoreFileToWrite.write(str((app.coinCount+app.distance)*app.mazeCompletedCounter))
+    highScore = open(app.highScoreFile,"r")
+    app.highScore = highScore.read()
 
 def getUserName(app):
     # from turtle import 
@@ -638,7 +640,6 @@ def drawTimeElapsedMazeSplash(app,canvas):
         font = "Krungthep 25 bold")
 
 
-
 #-----------------------timer fired and redraw all------------------------------
 def timerFired(app):
     if app.gameStart == False:
@@ -680,8 +681,6 @@ def timerFired(app):
                 if collisionDetectionLaser(app,app.staticLaserDimensions,
                 app.scrollX,app.BarryX,app.BarryY) == True:
                     app.isGameOver = True
-        # if app.isGameOver == True:
-        #     updateHighScore(app)
 
 def redrawAll(app,canvas):
     if app.isGameOver == False:
