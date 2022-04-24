@@ -767,6 +767,8 @@ playJetpackJoyride()
 # Sidescoller: https://www.cs.cmu.edu/~112/notes/notes-animations-part4.html#sidescrollerExamples
 # repr2DList: https://www.cs.cmu.edu/~112/notes/notes-2d-lists.html
 # Backtracking Logic (maze generation): https://www.cs.cmu.edu/~112/notes/notes-recursion-part2.html#mazeSolving
+# Sorting a dictionary by values instead of keys: https://stackoverflow.com/questions/613183/how-do-i-sort-a-dictionary-by-value 
+# Turtle Graphics for input box: https://stackoverflow.com/questions/50438182/user-input-in-dialog-box
 # fontfamily.py: https://stackoverflow.com/questions/39614027/list-available-font-families-in-tkinter courtesy of jimmiesrustled
 # Images and sprites: https://github.com/HugoLaurencon/JetPack-Joyride-game-in-Python/find/master courtesy of Hugo Laurencon
 # Open and read txt files: https://www.pythontutorial.net/python-basics/python-read-text-file/, https://www.geeksforgeeks.org/reading-writing-text-files-python/
